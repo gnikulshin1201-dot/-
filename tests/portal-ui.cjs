@@ -138,8 +138,10 @@ const assert = require("node:assert/strict");
         req.method() === "POST"
       ) {
         assert.equal(id, teacher);
-        uploads++;
         const parts = decodeURIComponent(path).split("/");
+        assert.match(parts.at(-1), /^[a-f0-9-]+--u8-[a-f0-9]+\.[a-z0-9]+$/i);
+        assert.ok(parts.at(-1).length < 1024);
+        uploads++;
         files.push({
           id: crypto.randomUUID(),
           name: parts.at(-1),
@@ -191,15 +193,15 @@ const assert = require("node:assert/strict");
     .getByLabel("На что обратить внимание", { exact: true })
     .fill("Проверить аргументацию.");
   await t.locator(".portal-dialog input[type=file]").setInputFiles({
-    name: "Задание.txt",
-    mimeType: "text/plain",
+    name: "Тайна_имени_Ксения_A4.pdf",
+    mimeType: "application/pdf",
     buffer: Buffer.from("Текст домашнего задания"),
   });
   await t.getByRole("button", { name: "Загрузить выбранные файлы" }).click();
   await t.waitForFunction(() =>
     document
       .querySelector(".attachment-list")
-      .textContent.includes("Задание.txt"),
+      .textContent.includes("Тайна_имени_Ксения_A4.pdf"),
   );
   assert.equal(uploads, 1);
   await t.locator(".portal-dialog button[type=submit]").click();
@@ -243,7 +245,7 @@ const assert = require("node:assert/strict");
   const downloadPromise = s.waitForEvent("download");
   await s.getByRole("button", { name: "Скачать", exact: true }).click();
   const download = await downloadPromise;
-  assert.equal(download.suggestedFilename(), "Задание.txt");
+  assert.equal(download.suggestedFilename(), "Тайна_имени_Ксения_A4.pdf");
   assert.equal(signed, 1);
   await s
     .locator(".portal-dialog")

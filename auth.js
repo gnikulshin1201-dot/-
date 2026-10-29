@@ -45,7 +45,28 @@ window.ScheduleStore = (() => {
       );
       error.status = response.status;
       try {
-        error.code = (await response.json()).code;
+        const details = await response.json();
+        error.code = details.code || details.error;
+        if (path.startsWith("/storage/v1/")) {
+          const reason = String(details.message || details.error || "");
+          if (/invalid.?key/i.test(reason))
+            error.message =
+              "Хранилище отклонило имя файла. Обновите страницу и попробуйте загрузить его снова.";
+          else if (/mime|content.?type/i.test(reason))
+            error.message =
+              "Хранилище не разрешает этот формат файла. Проверьте типы файлов в bucket homework.";
+          else if (response.status === 413 || /size|too large/i.test(reason))
+            error.message = "Файл превышает ограничение размера в хранилище.";
+          else if (
+            response.status === 403 ||
+            /row.level|permission|unauthorized/i.test(reason)
+          )
+            error.message =
+              "Нет прав на файл этого занятия. Войдите как преподаватель и проверьте политики хранилища homework.";
+          else if (/bucket.*not found/i.test(reason))
+            error.message =
+              "Хранилище homework не найдено. Необходимо выполнить SQL настройки кабинетов.";
+        }
       } catch {}
       throw error;
     }

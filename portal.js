@@ -292,7 +292,20 @@ window.LessonPortal = (() => {
     }
     throw Error("Слишком много файлов для отображения.");
   }
-  const originalName = (name) => name.replace(/^[0-9a-f-]{36}--/i, "");
+  // Supabase Storage object keys must use ASCII. Keep a reversible UTF-8 name
+  // inside an ASCII key so Russian filenames still display and download correctly.
+  const originalName = (name) => {
+    const stored = name.replace(/^[0-9a-f-]{36}--/i, "");
+    const match = /^u8-([a-f0-9]+)\.[a-z0-9]+$/i.exec(stored);
+    if (!match || match[1].length % 2) return stored;
+    try {
+      return new TextDecoder("utf-8", { fatal: true }).decode(
+        Uint8Array.from(match[1].match(/../g), (byte) => parseInt(byte, 16)),
+      );
+    } catch {
+      return stored;
+    }
+  };
   async function lessonDetails(lesson) {
     const epoch = generation;
     const files = await fileList(lesson);
@@ -436,9 +449,19 @@ window.LessonPortal = (() => {
         try {
           for (const f of chosen) {
             const ext = f.name.split(".").pop().toLowerCase();
-            const safeName = f.name
-              .replace(/[^\p{L}\p{N}._ -]/gu, "_")
-              .slice(-140);
+            const displayName =
+              Array.from(f.name).length > 100
+                ? Array.from(f.name.replace(/\.[^.]+$/, ""))
+                    .slice(0, 90)
+                    .join("") +
+                  "." +
+                  ext
+                : f.name;
+            const encodedName = Array.from(
+              new TextEncoder().encode(displayName),
+              (byte) => byte.toString(16).padStart(2, "0"),
+            ).join("");
+            const safeName = "u8-" + encodedName + "." + ext;
             await store.api(
               `/storage/v1/object/homework/${lesson.id}/${encodeURIComponent(crypto.randomUUID() + "--" + safeName)}`,
               {
