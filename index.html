@@ -1,9 +1,167 @@
 <!doctype html>
-<html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="description" content="Личное расписание Валентины: русский язык и литература, подготовка к ЕГЭ."><title>Валентина · Моё расписание</title><link rel="stylesheet" href="style.css"><script src="config.js" defer></script><script src="auth.js" defer></script><script src="app.js" defer></script></head>
-<body><header class="wrap"><a class="brand" href="./">Валентина<span>ЛИЧНОЕ РАСПИСАНИЕ</span></a><span class="header-note">Русский язык и литература · ЕГЭ</span></header>
-<section id="login-panel" class="wrap login-panel"><p class="eyebrow">ЛИЧНЫЙ КАБИНЕТ</p><h1>Ваше время.<br><em>Ваше расписание.</em></h1><p class="lead" id="auth-description">Войдите, чтобы открыть свои занятия.</p><div class="auth-tabs" role="group" aria-label="Вход или регистрация"><button id="show-login" type="button" aria-pressed="true">Вход</button><button id="show-register" type="button" aria-pressed="false">Регистрация</button></div><form id="login-form"><label>Логин — электронная почта<input id="email" type="email" autocomplete="username" required></label><label>Пароль<input id="password" type="password" autocomplete="current-password" required></label><label id="confirm-label" hidden>Повторите пароль<input id="password-confirm" type="password" autocomplete="new-password" disabled></label><button id="login-submit" class="primary" type="submit">Войти</button><p id="auth-message" class="storage-note" role="status"></p><p id="login-error" class="error" role="alert"></p></form><p id="setup-note" class="storage-note" hidden>Вход пока не активирован: необходимо подключить сервис авторизации. Расписание откроется после настройки.</p></section><main id="schedule-app" class="wrap" hidden><section class="intro"><p class="eyebrow">ВРЕМЯ ДЛЯ ВАЖНОГО</p><h1>Каждому занятию —<br><em>своё время.</em></h1><p class="lead">Планируйте уроки русского языка и литературы.<br>Всё необходимое на одной странице.</p></section>
-<section class="planner" aria-labelledby="schedule-title"><div class="account-bar"><button id="refresh">Обновить</button><button id="logout">Выйти</button></div><div class="toolbar"><div><p class="eyebrow">ВАШ ПЛАН</p><h2 id="schedule-title">Расписание занятий</h2></div><button id="add" class="primary">+ Добавить занятие</button></div><div class="week-nav"><button id="prev" aria-label="Предыдущая неделя">←</button><h3 id="week-label"></h3><button id="next" aria-label="Следующая неделя">→</button><button id="today">Сегодня</button></div><p class="timezone">Нажмите на дату, чтобы добавить занятие. Время — московское (UTC+3).</p><div id="days" class="days"></div><p class="storage-note" id="storage-note" role="status">Занятия сохраняются в вашем аккаунте. Для загрузки изменений с другого устройства нажмите «Обновить».</p></section>
-<section class="backup"><div><h2>Ваши планы — под рукой</h2><p>Сохраните копию расписания, чтобы перенести его в другой браузер или восстановить позже.</p></div><div class="backup-actions"><button id="export">Скачать копию</button><label class="file-button">Загрузить копию<input type="file" id="import" accept="application/json,.json"></label></div><p id="message" role="status"></p></section></main>
-<footer class="wrap"><span>Валентина · Русский язык и литература</span><span>Спокойный ритм. Ясный план.</span></footer>
-<dialog id="lesson-dialog"><form id="lesson-form"><div class="dialog-head"><h2>Новое занятие</h2><button type="button" id="close" aria-label="Закрыть">×</button></div><label>Дата<input id="date" type="date" required></label><div class="form-row"><label>Начало<input id="time" type="time" value="10:00" required></label><label>Длительность, мин.<input id="duration" type="number" min="15" max="480" step="5" value="60" required></label></div><label>Предмет<select id="subject"><option>Русский язык</option><option>Литература</option></select></label><label>Название или тема<input id="topic" maxlength="120" placeholder="Например, разбор сочинения" required></label><p id="form-error" class="error" role="alert"></p><button type="submit" class="primary">Сохранить занятие</button></form></dialog>
-</body></html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="Личное расписание Валентины: русский язык и литература, подготовка к ЕГЭ."
+    />
+    <title>Валентина · Моё расписание</title>
+    <link rel="stylesheet" href="style.css" />
+    <script src="config.js" defer></script>
+    <script src="auth.js" defer></script>
+    <script src="portal.js" defer></script>
+    <script src="app.js" defer></script>
+  </head>
+  <body>
+    <header class="wrap">
+      <a class="brand" href="./">Валентина<span>ЛИЧНОЕ РАСПИСАНИЕ</span></a
+      ><span class="header-note">Русский язык и литература · ЕГЭ</span>
+    </header>
+    <section id="login-panel" class="wrap login-panel">
+      <p class="eyebrow">ЛИЧНЫЙ КАБИНЕТ</p>
+      <h1>Ваше время.<br /><em>Ваше расписание.</em></h1>
+      <p class="lead" id="auth-description">
+        Войдите, чтобы открыть свои занятия.
+      </p>
+      <div class="auth-tabs" role="group" aria-label="Вход или регистрация">
+        <button id="show-login" type="button" aria-pressed="true">Вход</button
+        ><button id="show-register" type="button" aria-pressed="false">
+          Регистрация
+        </button>
+      </div>
+      <form id="login-form">
+        <label id="name-label" hidden
+          >Ваше имя<input
+            id="display-name"
+            maxlength="120"
+            autocomplete="name"
+            disabled /></label
+        ><label
+          >Логин — электронная почта<input
+            id="email"
+            type="email"
+            autocomplete="username"
+            required /></label
+        ><label
+          >Пароль<input
+            id="password"
+            type="password"
+            autocomplete="current-password"
+            required /></label
+        ><label id="confirm-label" hidden
+          >Повторите пароль<input
+            id="password-confirm"
+            type="password"
+            autocomplete="new-password"
+            disabled /></label
+        ><button id="login-submit" class="primary" type="submit">Войти</button>
+        <p id="auth-message" class="storage-note" role="status"></p>
+        <p id="login-error" class="error" role="alert"></p>
+      </form>
+      <p id="setup-note" class="storage-note" hidden>
+        Вход пока не активирован: необходимо подключить сервис авторизации.
+        Расписание откроется после настройки.
+      </p>
+    </section>
+    <main id="portal-app" class="wrap" hidden></main>
+    <main id="schedule-app" class="wrap" hidden>
+      <section class="intro">
+        <p class="eyebrow">ВРЕМЯ ДЛЯ ВАЖНОГО</p>
+        <h1>Каждому занятию —<br /><em>своё время.</em></h1>
+        <p class="lead">
+          Планируйте уроки русского языка и литературы.<br />Всё необходимое на
+          одной странице.
+        </p>
+      </section>
+      <section class="planner" aria-labelledby="schedule-title">
+        <div class="account-bar">
+          <button id="refresh">Обновить</button
+          ><button id="logout">Выйти</button>
+        </div>
+        <div class="toolbar">
+          <div>
+            <p class="eyebrow">ВАШ ПЛАН</p>
+            <h2 id="schedule-title">Расписание занятий</h2>
+          </div>
+          <button id="add" class="primary">+ Добавить занятие</button>
+        </div>
+        <div class="week-nav">
+          <button id="prev" aria-label="Предыдущая неделя">←</button>
+          <h3 id="week-label"></h3>
+          <button id="next" aria-label="Следующая неделя">→</button
+          ><button id="today">Сегодня</button>
+        </div>
+        <p class="timezone">
+          Нажмите на дату, чтобы добавить занятие. Время — московское (UTC+3).
+        </p>
+        <div id="days" class="days"></div>
+        <p class="storage-note" id="storage-note" role="status">
+          Занятия сохраняются в вашем аккаунте. Для загрузки изменений с другого
+          устройства нажмите «Обновить».
+        </p>
+      </section>
+      <section class="backup">
+        <div>
+          <h2>Ваши планы — под рукой</h2>
+          <p>
+            Сохраните копию расписания, чтобы перенести его в другой браузер или
+            восстановить позже.
+          </p>
+        </div>
+        <div class="backup-actions">
+          <button id="export">Скачать копию</button
+          ><label class="file-button"
+            >Загрузить копию<input
+              type="file"
+              id="import"
+              accept="application/json,.json"
+          /></label>
+        </div>
+        <p id="message" role="status"></p>
+      </section>
+    </main>
+    <footer class="wrap">
+      <span>Валентина · Русский язык и литература</span
+      ><span>Спокойный ритм. Ясный план.</span>
+    </footer>
+    <dialog id="lesson-dialog">
+      <form id="lesson-form">
+        <div class="dialog-head">
+          <h2>Новое занятие</h2>
+          <button type="button" id="close" aria-label="Закрыть">×</button>
+        </div>
+        <label>Дата<input id="date" type="date" required /></label>
+        <div class="form-row">
+          <label
+            >Начало<input id="time" type="time" value="10:00" required /></label
+          ><label
+            >Длительность, мин.<input
+              id="duration"
+              type="number"
+              min="15"
+              max="480"
+              step="5"
+              value="60"
+              required
+          /></label>
+        </div>
+        <label
+          >Предмет<select id="subject">
+            <option>Русский язык</option>
+            <option>Литература</option>
+          </select></label
+        ><label
+          >Название или тема<input
+            id="topic"
+            maxlength="120"
+            placeholder="Например, разбор сочинения"
+            required
+        /></label>
+        <p id="form-error" class="error" role="alert"></p>
+        <button type="submit" class="primary">Сохранить занятие</button>
+      </form>
+    </dialog>
+  </body>
+</html>

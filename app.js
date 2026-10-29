@@ -1,29 +1,366 @@
-'use strict';
+"use strict";
 const store = window.ScheduleStore;
-const $ = id => document.getElementById(id);
-const dateKey = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-const moscowDate = () => new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Moscow',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
-const atNoon = s => new Date(`${s}T12:00:00`);
-const monday = d => {const n = new Date(d);n.setDate(n.getDate()-(n.getDay()+6)%7);return n};
-const valid = a => Array.isArray(a) && a.length <= 5000 && new Set(a.map(x=>x?.id)).size===a.length && a.every(x=> x && typeof x.id==='string' && x.id.length<=100 && typeof x.date==='string' && /^\d{4}-\d{2}-\d{2}$/.test(x.date) && !isNaN(atNoon(x.date)) && dateKey(atNoon(x.date))===x.date && typeof x.time==='string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(x.time) && Number.isInteger(x.duration) && x.duration>=15 && x.duration<=480 && ['Русский язык','Литература'].includes(x.subject) && typeof x.topic==='string' && x.topic.trim().length>0 && x.topic.length<=120);
-let lessons=[];
-let week=monday(atNoon(moscowDate()));
-let saving=false;
-async function persist(next){if(saving)return false;saving=true;document.querySelectorAll('#schedule-app button, #lesson-form button[type=submit]').forEach(b=>b.disabled=true);try{await store.save(next);lessons=next;$('message').textContent='';return true}catch(e){$('message').textContent=e.message;$('form-error').textContent=e.message;return false}finally{saving=false;document.querySelectorAll('#schedule-app button, #lesson-form button[type=submit]').forEach(b=>b.disabled=false)}}
-function el(tag,text,cls){const n=document.createElement(tag);if(text)n.textContent=text;if(cls)n.className=cls;return n}
-function render(){const end=new Date(week);end.setDate(end.getDate()+6);const fmt=d=>d.toLocaleDateString('ru-RU',{day:'numeric',month:'short',year:'numeric'});$('week-label').textContent=`${fmt(week)} — ${fmt(end)}`;$('days').replaceChildren();for(let i=0;i<7;i++){const d=new Date(week);d.setDate(d.getDate()+i);const key=dateKey(d);const day=el('section',null,'day'+(key===moscowDate()?' is-today':''));const heading=el('button',null,'day-title');heading.type='button';heading.setAttribute('aria-label',`Добавить занятие на ${d.toLocaleDateString('ru-RU',{day:'numeric',month:'long',year:'numeric'})}`);heading.onclick=()=>openLesson(key);heading.append(el('span',d.toLocaleDateString('ru-RU',{weekday:'short'})),el('strong',String(d.getDate())));day.append(heading);day.addEventListener('click',event=>{if(event.target===day||event.target.classList.contains('empty'))openLesson(key)});const items=lessons.filter(x=>x.date===key).sort((a,b)=>a.time.localeCompare(b.time));if(!items.length)day.append(el('p','Нет занятий','empty'));for(const x of items){const card=el('article',null,'lesson'+(x.subject==='Литература'?' literature':''));card.append(el('div',`${x.time} · ${x.duration} мин.`,'lesson-time'),el('p',x.subject,'lesson-subject'),el('p',x.topic,'lesson-topic'));const del=el('button','Удалить','delete');del.setAttribute('aria-label',`Удалить занятие: ${x.topic}, ${x.date}, ${x.time}`);del.onclick=async()=>{if(confirm('Удалить это занятие?')&&await persist(lessons.filter(y=>y.id!==x.id)))render()};card.append(del);day.append(card)}$('days').append(day)}}
-$('prev').onclick=()=>{week.setDate(week.getDate()-7);render()};$('next').onclick=()=>{week.setDate(week.getDate()+7);render()};$('today').onclick=()=>{week=monday(atNoon(moscowDate()));render()};
-function openLesson(date){$('lesson-form').reset();$('date').value=date;$('form-error').textContent='';$('lesson-dialog').showModal()}
-$('add').onclick=()=>openLesson(moscowDate());$('close').onclick=()=>$('lesson-dialog').close();
-$('lesson-form').onsubmit=async e=>{e.preventDefault();const x={id:crypto.randomUUID(),date:$('date').value,time:$('time').value,duration:Number($('duration').value),subject:$('subject').value,topic:$('topic').value.trim()};if(!valid([x])){$('form-error').textContent='Проверьте дату, время и название занятия.';return}const start=Number(x.time.slice(0,2))*60+Number(x.time.slice(3));if(start+x.duration>1440){$('form-error').textContent='Занятие должно закончиться до полуночи.';return}if(lessons.some(y=>{const t=Number(y.time.slice(0,2))*60+Number(y.time.slice(3));return y.date===x.date&&start<t+y.duration&&t<start+x.duration})){$('form-error').textContent='На это время уже запланировано занятие. Выберите другое время.';return}if(lessons.length>=5000){$('form-error').textContent='Достигнут лимит 5000 занятий. Сохраните копию и удалите старые занятия.';return}if(await persist([...lessons,x])){week=monday(atNoon(x.date));render();$('lesson-dialog').close()}};
-$('export').onclick=()=>{const url=URL.createObjectURL(new Blob([JSON.stringify(lessons,null,2)],{type:'application/json'}));const a=el('a');a.href=url;a.download=`valentina-${moscowDate()}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)};
-$('import').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{if(f.size>3000000)throw Error();const data=JSON.parse(await f.text());if(!valid(data))throw Error();if(!confirm('Заменить текущее расписание данными из файла?'))return;if(await persist(data)){render();$('message').textContent='Расписание восстановлено.'}}catch{$('message').textContent='Не удалось загрузить копию. Выберите JSON-файл, сохранённый этим расписанием.'}finally{e.target.value=''}};
+const $ = (id) => document.getElementById(id);
+const dateKey = (d) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+const moscowDate = () =>
+  new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/Moscow",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+const atNoon = (s) => new Date(`${s}T12:00:00`);
+const monday = (d) => {
+  const n = new Date(d);
+  n.setDate(n.getDate() - ((n.getDay() + 6) % 7));
+  return n;
+};
+const valid = (a) =>
+  Array.isArray(a) &&
+  a.length <= 5000 &&
+  new Set(a.map((x) => x?.id)).size === a.length &&
+  a.every(
+    (x) =>
+      x &&
+      typeof x.id === "string" &&
+      x.id.length <= 100 &&
+      typeof x.date === "string" &&
+      /^\d{4}-\d{2}-\d{2}$/.test(x.date) &&
+      !isNaN(atNoon(x.date)) &&
+      dateKey(atNoon(x.date)) === x.date &&
+      typeof x.time === "string" &&
+      /^([01]\d|2[0-3]):[0-5]\d$/.test(x.time) &&
+      Number.isInteger(x.duration) &&
+      x.duration >= 15 &&
+      x.duration <= 480 &&
+      ["Русский язык", "Литература"].includes(x.subject) &&
+      typeof x.topic === "string" &&
+      x.topic.trim().length > 0 &&
+      x.topic.length <= 120,
+  );
+let lessons = [];
+let week = monday(atNoon(moscowDate()));
+let saving = false;
+async function persist(next) {
+  if (saving) return false;
+  saving = true;
+  document
+    .querySelectorAll("#schedule-app button, #lesson-form button[type=submit]")
+    .forEach((b) => (b.disabled = true));
+  try {
+    await store.save(next);
+    lessons = next;
+    $("message").textContent = "";
+    return true;
+  } catch (e) {
+    $("message").textContent = e.message;
+    $("form-error").textContent = e.message;
+    return false;
+  } finally {
+    saving = false;
+    document
+      .querySelectorAll(
+        "#schedule-app button, #lesson-form button[type=submit]",
+      )
+      .forEach((b) => (b.disabled = false));
+  }
+}
+function el(tag, text, cls) {
+  const n = document.createElement(tag);
+  if (text) n.textContent = text;
+  if (cls) n.className = cls;
+  return n;
+}
+function render() {
+  const end = new Date(week);
+  end.setDate(end.getDate() + 6);
+  const fmt = (d) =>
+    d.toLocaleDateString("ru-RU", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    });
+  $("week-label").textContent = `${fmt(week)} — ${fmt(end)}`;
+  $("days").replaceChildren();
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(week);
+    d.setDate(d.getDate() + i);
+    const key = dateKey(d);
+    const day = el(
+      "section",
+      null,
+      "day" + (key === moscowDate() ? " is-today" : ""),
+    );
+    const heading = el("button", null, "day-title");
+    heading.type = "button";
+    heading.setAttribute(
+      "aria-label",
+      `Добавить занятие на ${d.toLocaleDateString("ru-RU", { day: "numeric", month: "long", year: "numeric" })}`,
+    );
+    heading.onclick = () => openLesson(key);
+    heading.append(
+      el("span", d.toLocaleDateString("ru-RU", { weekday: "short" })),
+      el("strong", String(d.getDate())),
+    );
+    day.append(heading);
+    day.addEventListener("click", (event) => {
+      if (event.target === day || event.target.classList.contains("empty"))
+        openLesson(key);
+    });
+    const items = lessons
+      .filter((x) => x.date === key)
+      .sort((a, b) => a.time.localeCompare(b.time));
+    if (!items.length) day.append(el("p", "Нет занятий", "empty"));
+    for (const x of items) {
+      const card = el(
+        "article",
+        null,
+        "lesson" + (x.subject === "Литература" ? " literature" : ""),
+      );
+      card.append(
+        el("div", `${x.time} · ${x.duration} мин.`, "lesson-time"),
+        el("p", x.subject, "lesson-subject"),
+        el("p", x.topic, "lesson-topic"),
+      );
+      const del = el("button", "Удалить", "delete");
+      del.setAttribute(
+        "aria-label",
+        `Удалить занятие: ${x.topic}, ${x.date}, ${x.time}`,
+      );
+      del.onclick = async () => {
+        if (
+          confirm("Удалить это занятие?") &&
+          (await persist(lessons.filter((y) => y.id !== x.id)))
+        )
+          render();
+      };
+      card.append(del);
+      day.append(card);
+    }
+    $("days").append(day);
+  }
+}
+$("prev").onclick = () => {
+  week.setDate(week.getDate() - 7);
+  render();
+};
+$("next").onclick = () => {
+  week.setDate(week.getDate() + 7);
+  render();
+};
+$("today").onclick = () => {
+  week = monday(atNoon(moscowDate()));
+  render();
+};
+function openLesson(date) {
+  $("lesson-form").reset();
+  $("date").value = date;
+  $("form-error").textContent = "";
+  $("lesson-dialog").showModal();
+}
+$("add").onclick = () => openLesson(moscowDate());
+$("close").onclick = () => $("lesson-dialog").close();
+$("lesson-form").onsubmit = async (e) => {
+  e.preventDefault();
+  const x = {
+    id: crypto.randomUUID(),
+    date: $("date").value,
+    time: $("time").value,
+    duration: Number($("duration").value),
+    subject: $("subject").value,
+    topic: $("topic").value.trim(),
+  };
+  if (!valid([x])) {
+    $("form-error").textContent = "Проверьте дату, время и название занятия.";
+    return;
+  }
+  const start = Number(x.time.slice(0, 2)) * 60 + Number(x.time.slice(3));
+  if (start + x.duration > 1440) {
+    $("form-error").textContent = "Занятие должно закончиться до полуночи.";
+    return;
+  }
+  if (
+    lessons.some((y) => {
+      const t = Number(y.time.slice(0, 2)) * 60 + Number(y.time.slice(3));
+      return (
+        y.date === x.date && start < t + y.duration && t < start + x.duration
+      );
+    })
+  ) {
+    $("form-error").textContent =
+      "На это время уже запланировано занятие. Выберите другое время.";
+    return;
+  }
+  if (lessons.length >= 5000) {
+    $("form-error").textContent =
+      "Достигнут лимит 5000 занятий. Сохраните копию и удалите старые занятия.";
+    return;
+  }
+  if (await persist([...lessons, x])) {
+    week = monday(atNoon(x.date));
+    render();
+    $("lesson-dialog").close();
+  }
+};
+$("export").onclick = () => {
+  const url = URL.createObjectURL(
+    new Blob([JSON.stringify(lessons, null, 2)], { type: "application/json" }),
+  );
+  const a = el("a");
+  a.href = url;
+  a.download = `valentina-${moscowDate()}.json`;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+};
+$("import").onchange = async (e) => {
+  const f = e.target.files[0];
+  if (!f) return;
+  try {
+    if (f.size > 3000000) throw Error();
+    const data = JSON.parse(await f.text());
+    if (!valid(data)) throw Error();
+    if (!confirm("Заменить текущее расписание данными из файла?")) return;
+    if (await persist(data)) {
+      render();
+      $("message").textContent = "Расписание восстановлено.";
+    }
+  } catch {
+    $("message").textContent =
+      "Не удалось загрузить копию. Выберите JSON-файл, сохранённый этим расписанием.";
+  } finally {
+    e.target.value = "";
+  }
+};
 
-async function loadSchedule(){const data=await store.load();if(!valid(data))throw new Error('Сохранённое расписание имеет неверный формат. Данные не изменены.');lessons=data;render();$('login-panel').hidden=true;$('schedule-app').hidden=false;}
-let authMode='login';
-function setAuthMode(mode){authMode=mode;const signup=mode==='register';$('show-login').setAttribute('aria-pressed',String(!signup));$('show-register').setAttribute('aria-pressed',String(signup));$('auth-description').textContent=signup?'Создайте аккаунт, чтобы сохранять своё расписание.':'Войдите, чтобы открыть свои занятия.';$('login-submit').textContent=signup?'Зарегистрироваться':'Войти';$('password').autocomplete=signup?'new-password':'current-password';if(signup)$('password').minLength=8;else $('password').removeAttribute('minlength');$('confirm-label').hidden=!signup;$('password-confirm').disabled=!signup;$('password-confirm').required=signup;$('password').value='';$('password-confirm').value='';$('login-error').textContent='';$('auth-message').textContent='';}
-$('show-login').onclick=()=>setAuthMode('login');$('show-register').onclick=()=>setAuthMode('register');
-$('login-form').onsubmit=async e=>{e.preventDefault();$('login-error').textContent='';$('auth-message').textContent='';if(authMode==='register'&&$('password').value!==$('password-confirm').value){$('login-error').textContent='Пароли не совпадают.';return}const mode=authMode;for(const id of ['login-submit','show-login','show-register'])$(id).disabled=true;try{let signedIn=true;if(mode==='register')signedIn=await store.register($('email').value.trim(),$('password').value);else await store.login($('email').value.trim(),$('password').value);$('password').value='';$('password-confirm').value='';if(signedIn)await loadSchedule();else{setAuthMode('login');$('auth-message').textContent='Если адрес подходит для регистрации, на него отправлено письмо. Откройте ссылку подтверждения, затем войдите с почтой и паролем. Если аккаунт уже существует, используйте вход.'}}catch(e){$('login-error').textContent=e.message}finally{for(const id of ['login-submit','show-login','show-register'])$(id).disabled=false}};
-$('logout').onclick=async()=>{let error='';try{await store.logout()}catch{error='Вы вышли из этого браузера. Сервер недоступен; удалённый сеанс завершится по истечении срока.'}lessons=[];$('days').replaceChildren();$('schedule-app').hidden=true;$('login-panel').hidden=false;$('lesson-dialog').close();setAuthMode('login');$('login-error').textContent=error;};
-$('refresh').onclick=async()=>{if(saving)return;$('refresh').disabled=true;try{await loadSchedule();$('message').textContent='Расписание обновлено.'}catch(e){$('message').textContent=e.message}finally{$('refresh').disabled=false}};
-(async()=>{if(!store.configured){$('setup-note').hidden=false;$('login-submit').disabled=true;$('show-register').disabled=true;$('show-login').disabled=true;$('email').disabled=true;$('password').disabled=true;return}try{if(await store.restore())await loadSchedule()}catch(e){$('login-error').textContent=e.message}})();
+async function loadLegacySchedule() {
+  const data = await store.load();
+  if (!valid(data))
+    throw new Error(
+      "Сохранённое расписание имеет неверный формат. Данные не изменены.",
+    );
+  lessons = data;
+  render();
+  $("login-panel").hidden = true;
+  $("schedule-app").hidden = false;
+}
+async function loadSchedule() {
+  if (await window.LessonPortal.start()) return;
+  await loadLegacySchedule();
+}
+window.loadLegacySchedule = loadLegacySchedule;
+let authMode = "login";
+function setAuthMode(mode) {
+  authMode = mode;
+  const signup = mode === "register";
+  $("show-login").setAttribute("aria-pressed", String(!signup));
+  $("show-register").setAttribute("aria-pressed", String(signup));
+  $("auth-description").textContent = signup
+    ? "Создайте аккаунт, чтобы сохранять своё расписание."
+    : "Войдите, чтобы открыть свои занятия.";
+  $("login-submit").textContent = signup ? "Зарегистрироваться" : "Войти";
+  $("password").autocomplete = signup ? "new-password" : "current-password";
+  if (signup) $("password").minLength = 8;
+  else $("password").removeAttribute("minlength");
+  $("name-label").hidden = !signup;
+  $("display-name").disabled = !signup;
+  $("display-name").required = signup;
+  $("confirm-label").hidden = !signup;
+  $("password-confirm").disabled = !signup;
+  $("password-confirm").required = signup;
+  $("password").value = "";
+  $("password-confirm").value = "";
+  $("login-error").textContent = "";
+  $("auth-message").textContent = "";
+}
+$("show-login").onclick = () => setAuthMode("login");
+$("show-register").onclick = () => setAuthMode("register");
+$("login-form").onsubmit = async (e) => {
+  e.preventDefault();
+  $("login-error").textContent = "";
+  $("auth-message").textContent = "";
+  if (
+    authMode === "register" &&
+    $("password").value !== $("password-confirm").value
+  ) {
+    $("login-error").textContent = "Пароли не совпадают.";
+    return;
+  }
+  const mode = authMode;
+  for (const id of ["login-submit", "show-login", "show-register"])
+    $(id).disabled = true;
+  try {
+    let signedIn = true;
+    if (mode === "register")
+      signedIn = await store.register(
+        $("email").value.trim(),
+        $("password").value,
+        $("display-name").value.trim(),
+      );
+    else await store.login($("email").value.trim(), $("password").value);
+    $("password").value = "";
+    $("password-confirm").value = "";
+    if (signedIn) await loadSchedule();
+    else {
+      setAuthMode("login");
+      $("auth-message").textContent =
+        "Если адрес подходит для регистрации, на него отправлено письмо. Откройте ссылку подтверждения, затем войдите с почтой и паролем. Если аккаунт уже существует, используйте вход.";
+    }
+  } catch (e) {
+    $("login-error").textContent = e.message;
+  } finally {
+    for (const id of ["login-submit", "show-login", "show-register"])
+      $(id).disabled = false;
+  }
+};
+$("logout").onclick = async () => {
+  let error = "";
+  try {
+    await store.logout();
+  } catch {
+    error =
+      "Вы вышли из этого браузера. Сервер недоступен; удалённый сеанс завершится по истечении срока.";
+  }
+  lessons = [];
+  $("days").replaceChildren();
+  $("schedule-app").hidden = true;
+  $("login-panel").hidden = false;
+  $("lesson-dialog").close();
+  setAuthMode("login");
+  $("login-error").textContent = error;
+};
+const portalBack = document.createElement("button");
+portalBack.textContent = "К кабинету";
+portalBack.onclick = () =>
+  loadSchedule().catch((e) => {
+    $("message").textContent = e.message;
+  });
+document.querySelector("#schedule-app .account-bar").prepend(portalBack);
+$("refresh").onclick = async () => {
+  if (saving) return;
+  $("refresh").disabled = true;
+  try {
+    await loadSchedule();
+    $("message").textContent = "Расписание обновлено.";
+  } catch (e) {
+    $("message").textContent = e.message;
+  } finally {
+    $("refresh").disabled = false;
+  }
+};
+(async () => {
+  if (!store.configured) {
+    $("setup-note").hidden = false;
+    $("login-submit").disabled = true;
+    $("show-register").disabled = true;
+    $("show-login").disabled = true;
+    $("email").disabled = true;
+    $("password").disabled = true;
+    return;
+  }
+  try {
+    if (await store.restore()) await loadSchedule();
+  } catch (e) {
+    $("login-error").textContent = e.message;
+  }
+})();
