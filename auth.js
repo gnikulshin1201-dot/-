@@ -19,6 +19,7 @@ window.ScheduleStore = (() => {
     if (!response.ok) {
       const error = new Error(response.status === 401 ? 'Сеанс истёк. Войдите заново.' : response.status === 429 ? 'Слишком много попыток. Попробуйте позже.' : 'Сервер отклонил запрос. Проверьте настройки доступа.');
       error.status = response.status;
+      try { error.code = (await response.json()).code; } catch {}
       throw error;
     }
     return response.status === 204 ? null : response.json();
@@ -40,8 +41,22 @@ window.ScheduleStore = (() => {
     async login(email,password) {
       if (!configured) throw new Error('Сервис входа ещё не подключён.');
       try { accept(await request('/auth/v1/token?grant_type=password', { method:'POST', body:JSON.stringify({email,password}) })); }
-      catch(e) { if ([400,401,403].includes(e.status)) throw new Error('Не удалось войти. Проверьте почту и пароль.'); throw e; }
+      catch(e) { if (e.code === 'email_not_confirmed') throw new Error('Подтвердите почту по ссылке в письме, затем войдите снова.'); if ([400,401,403].includes(e.status)) throw new Error('Не удалось войти. Проверьте почту и пароль.'); throw e; }
       version = null;
+    },
+    async register(email, password) {
+      if (!configured) throw new Error('Сервис регистрации ещё не подключён.');
+      let data;
+      try { data = await request('/auth/v1/signup?redirect_to=' + encodeURIComponent(location.origin + location.pathname), {method:'POST',body:JSON.stringify({email,password})}); }
+      catch(e) {
+        if (e.code === 'signup_disabled') throw new Error('Регистрация выключена в Supabase. Владелец проекта должен разрешить создание аккаунтов.');
+        if (e.code === 'weak_password') throw new Error('Пароль не соответствует требованиям сервиса. Используйте более длинный и сложный пароль.');
+        if ([400,422].includes(e.status)) throw new Error('Не удалось зарегистрироваться. Проверьте почту и пароль. Если аккаунт уже есть, попробуйте войти.');
+        throw e;
+      }
+      version = null;
+      if (data.access_token) { accept(data); return true; }
+      return false;
     },
     async restore() {
       if (!configured) return false;

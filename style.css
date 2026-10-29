@@ -2,3 +2,5 @@
 button.day-title{width:100%;border:0;border-radius:4px;padding:3px 3px 14px;background:transparent;text-align:left}button.day-title:hover{background:#dce7cb}.day{cursor:pointer}.lesson{cursor:default}.day-title:focus-visible{outline:3px solid #94a768;outline-offset:1px}
 
 [hidden]{display:none!important}.login-panel{padding-top:45px;padding-bottom:60px}.login-panel form{max-width:360px}.login-panel h1{font-size:48px}.account-bar{display:flex;gap:10px;justify-content:flex-end;margin-bottom:20px}button:disabled{opacity:.5;cursor:wait}input:disabled{opacity:.6}@media(max-width:500px){.login-panel h1{font-size:38px}}
+
+.auth-tabs{display:flex;gap:8px;margin:22px 0;max-width:360px}.auth-tabs button{flex:1}.auth-tabs [aria-pressed="true"]{background:var(--green);color:white}.login-panel #auth-message{line-height:1.8}
