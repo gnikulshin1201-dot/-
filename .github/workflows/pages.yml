@@ -19,9 +19,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/configure-pages@v5
+      - name: Prepare public files
+        run: |
+          mkdir -p public
+          cp index.html style.css app.js public/
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: .
+          path: public
       - name: Deploy
         id: deployment
         uses: actions/deploy-pages@v4
