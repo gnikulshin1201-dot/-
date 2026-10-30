@@ -57,6 +57,7 @@
             autocomplete="new-password"
             disabled /></label
         ><button id="login-submit" class="primary" type="submit">Войти</button>
+        <button id="forgot-password" type="button">Забыли пароль?</button>
         <p id="auth-message" class="storage-note" role="status"></p>
         <p id="login-error" class="error" role="alert"></p>
       </form>
@@ -64,6 +65,10 @@
         Вход пока не активирован: необходимо подключить сервис авторизации.
         Расписание откроется после настройки.
       </p>
+    </section>
+    <section id="recovery-panel" class="wrap login-panel" hidden>
+      <p class="eyebrow">ВОССТАНОВЛЕНИЕ ДОСТУПА</p><h1>Новый пароль.<br><em>Прежнее расписание.</em></h1>
+      <form id="recovery-form"><label>Новый пароль (не менее 8 символов)<input id="new-password" type="password" autocomplete="new-password" minlength="8" required></label><label>Повторите новый пароль<input id="new-password-confirm" type="password" autocomplete="new-password" minlength="8" required></label><button id="save-password" type="submit" class="primary">Сохранить новый пароль</button><button id="cancel-recovery" type="button">Вернуться ко входу</button><p id="recovery-error" class="error" role="alert"></p></form>
     </section>
     <main id="portal-app" class="wrap" hidden></main>
     <main id="schedule-app" class="wrap" hidden>

@@ -273,6 +273,15 @@ function setAuthMode(mode) {
   $("login-error").textContent = "";
   $("auth-message").textContent = "";
 }
+$("forgot-password").onclick=async()=>{
+  const email=$("email");if(!email.reportValidity())return;
+  $("forgot-password").disabled=true;$("login-error").textContent="";$("auth-message").textContent="";
+  try{await store.sendRecovery(email.value.trim());$("auth-message").textContent="Если аккаунт с такой почтой существует, придёт письмо восстановления. Проверьте входящие и папку «Спам», откройте ссылку и задайте новый пароль.";}
+  catch(e){$("login-error").textContent=e.message}finally{$("forgot-password").disabled=false}
+};
+function showRecovery(){ $("login-panel").hidden=true;$("schedule-app").hidden=true;$("portal-app").hidden=true;$("recovery-panel").hidden=false; }
+$("recovery-form").onsubmit=async e=>{e.preventDefault();$("recovery-error").textContent="";if($("new-password").value!==$("new-password-confirm").value){$("recovery-error").textContent="Пароли не совпадают.";return}$("save-password").disabled=true;$("cancel-recovery").disabled=true;try{const revoked=await store.changeRecoveredPassword($("new-password").value);$("recovery-form").reset();$("recovery-panel").hidden=true;$("login-panel").hidden=false;setAuthMode("login");$("auth-message").textContent=revoked?"Пароль изменён. Войдите с новым паролем. Занятия и задания сохранены.":"Пароль изменён. Не удалось завершить другие сеансы. Войдите с новым паролем.";}catch(e){$("recovery-error").textContent=e.message}finally{$("save-password").disabled=false;$("cancel-recovery").disabled=false}};
+$("cancel-recovery").onclick=async()=>{try{await store.logout()}catch{}$("recovery-form").reset();$("recovery-panel").hidden=true;$("login-panel").hidden=false;setAuthMode("login")};
 $("show-login").onclick = () => setAuthMode("login");
 $("show-register").onclick = () => setAuthMode("register");
 $("login-form").onsubmit = async (e) => {
@@ -350,6 +359,7 @@ $("refresh").onclick = async () => {
 };
 (async () => {
   if (!store.configured) {
+    $("forgot-password").disabled = true;
     $("setup-note").hidden = false;
     $("login-submit").disabled = true;
     $("show-register").disabled = true;
@@ -359,8 +369,14 @@ $("refresh").onclick = async () => {
     return;
   }
   try {
-    if (await store.restore()) await loadSchedule();
+    if (await store.beginRecovery()) { showRecovery(); return; }
+    if (await store.restore()) { if(store.recovering)showRecovery();else await loadSchedule(); }
   } catch (e) {
     $("login-error").textContent = e.message;
   }
 })();
+
+window.addEventListener("hashchange", async () => {
+  try { if (await store.beginRecovery()) showRecovery(); }
+  catch(e) { $("recovery-panel").hidden=true;$("login-panel").hidden=false;$("login-error").textContent=e.message; }
+});

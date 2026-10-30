@@ -7,6 +7,8 @@ window.ScheduleStore = (() => {
     /^https:\/\/[a-z0-9-]+\.supabase\.co$/.test(url) &&
     /^(sb_publishable_|eyJ)/.test(key);
   const SESSION = "valentina-auth-v1";
+  const RECOVERY = "valentina-recovery-v1";
+  let recovering = false;
   let session = null;
   let version = null;
   const offlineError =
@@ -120,6 +122,8 @@ window.ScheduleStore = (() => {
         throw e;
       }
       version = null;
+      recovering = false;
+      try { sessionStorage.removeItem(RECOVERY); } catch {}
     },
     async register(email, password, displayName) {
       if (!configured) throw new Error("Сервис регистрации ещё не подключён.");
@@ -159,12 +163,42 @@ window.ScheduleStore = (() => {
       }
       return false;
     },
+    async sendRecovery(email) {
+      if (!configured) throw new Error("Сервис восстановления ещё не подключён.");
+      await request("/auth/v1/recover?redirect_to=" + encodeURIComponent(location.origin + location.pathname), {method:"POST",body:JSON.stringify({email})});
+    },
+    async beginRecovery() {
+      const params = new URLSearchParams(location.hash.slice(1));
+      if (params.get("type") !== "recovery" && !params.has("error_code")) return false;
+      // Remove tokens from the address bar before making any network requests.
+      history.replaceState(null, "", location.pathname + location.search);
+      remember(null);
+      const access = params.get("access_token"), refresh = params.get("refresh_token");
+      if (params.has("error_code") || !access || !refresh) throw new Error("Ссылка восстановления недействительна или истекла. Запросите новое письмо.");
+      const user = await request("/auth/v1/user", {}, access);
+      accept({access_token:access,refresh_token:refresh,user,expires_in:Number(params.get("expires_in")) || 3600});
+      recovering = true;
+      try { sessionStorage.setItem(RECOVERY, "true"); } catch {}
+      return true;
+    },
+    get recovering() { return recovering; },
+    async changeRecoveredPassword(password) {
+      if (!recovering) throw new Error("Сначала откройте ссылку восстановления из письма.");
+      try { await request("/auth/v1/user", {method:"PUT",body:JSON.stringify({password})},await token()); }
+      catch(e) { if (e.code === "weak_password") throw new Error("Выберите более длинный и сложный пароль."); if (e.code === "same_password") throw new Error("Новый пароль должен отличаться от прежнего."); throw e; }
+      let revoked=true;
+      try { await request("/auth/v1/logout?scope=global", {method:"POST"},await token()); } catch { revoked=false; }
+      remember(null); recovering=false; version=null;
+      try { sessionStorage.removeItem(RECOVERY); } catch {}
+      return revoked;
+    },
     async restore() {
       if (!configured) return false;
       try {
         const stored = JSON.parse(sessionStorage.getItem(SESSION));
         if (!stored?.refresh_token || !stored?.user?.id) return false;
         session = stored;
+        recovering = sessionStorage.getItem(RECOVERY) === "true";
         await token();
         return true;
       } catch (e) {
@@ -232,6 +266,8 @@ window.ScheduleStore = (() => {
           );
       } finally {
         remember(null);
+        recovering = false;
+        try { sessionStorage.removeItem(RECOVERY); } catch {}
         version = null;
       }
     },
