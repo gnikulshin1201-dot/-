@@ -651,6 +651,7 @@ window.LessonPortal = (() => {
       ),
     );
     intro.append(controls);
+    window.ClassroomDecor.decorateIntro(intro);
     root().append(intro);
     const planner = node("section", undefined, "planner");
     const toolbar = node("div", undefined, "toolbar");
@@ -726,7 +727,7 @@ window.LessonPortal = (() => {
     message = node("p", "", "storage-note");
     message.setAttribute("role", "status");
     planner.append(message);
-    root().append(planner);
+    root().append(planner, window.ClassroomDecor.notes());
     if (teacher()) {
       const legacy = node("section", undefined, "backup");
       legacy.append(

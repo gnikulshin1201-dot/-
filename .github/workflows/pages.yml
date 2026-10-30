@@ -22,7 +22,8 @@ jobs:
       - name: Prepare public files
         run: |
           mkdir -p public
-          cp index.html style.css app.js auth.js config.js portal.js calendar.js public/
+          cp index.html style.css app.js auth.js config.js portal.js calendar.js decor.js public/
+          cp -R assets public/
       - uses: actions/upload-pages-artifact@v3
         with:
           path: public
