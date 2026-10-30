@@ -11,6 +11,7 @@
     <link rel="stylesheet" href="style.css" />
     <script src="config.js" defer></script>
     <script src="auth.js" defer></script>
+    <script src="calendar.js" defer></script>
     <script src="portal.js" defer></script>
     <script src="app.js" defer></script>
   </head>
@@ -67,8 +68,28 @@
       </p>
     </section>
     <section id="recovery-panel" class="wrap login-panel" hidden>
-      <p class="eyebrow">ВОССТАНОВЛЕНИЕ ДОСТУПА</p><h1>Новый пароль.<br><em>Прежнее расписание.</em></h1>
-      <form id="recovery-form"><label>Новый пароль (не менее 8 символов)<input id="new-password" type="password" autocomplete="new-password" minlength="8" required></label><label>Повторите новый пароль<input id="new-password-confirm" type="password" autocomplete="new-password" minlength="8" required></label><button id="save-password" type="submit" class="primary">Сохранить новый пароль</button><button id="cancel-recovery" type="button">Вернуться ко входу</button><p id="recovery-error" class="error" role="alert"></p></form>
+      <p class="eyebrow">ВОССТАНОВЛЕНИЕ ДОСТУПА</p>
+      <h1>Новый пароль.<br /><em>Прежнее расписание.</em></h1>
+      <form id="recovery-form">
+        <label
+          >Новый пароль (не менее 8 символов)<input
+            id="new-password"
+            type="password"
+            autocomplete="new-password"
+            minlength="8"
+            required /></label
+        ><label
+          >Повторите новый пароль<input
+            id="new-password-confirm"
+            type="password"
+            autocomplete="new-password"
+            minlength="8"
+            required /></label
+        ><button id="save-password" type="submit" class="primary">
+          Сохранить новый пароль</button
+        ><button id="cancel-recovery" type="button">Вернуться ко входу</button>
+        <p id="recovery-error" class="error" role="alert"></p>
+      </form>
     </section>
     <main id="portal-app" class="wrap" hidden></main>
     <main id="schedule-app" class="wrap" hidden>
@@ -93,15 +114,15 @@
           <button id="add" class="primary">+ Добавить занятие</button>
         </div>
         <div class="week-nav">
-          <button id="prev" aria-label="Предыдущая неделя">←</button>
+          <button id="prev" aria-label="Предыдущий период">←</button>
           <h3 id="week-label"></h3>
-          <button id="next" aria-label="Следующая неделя">→</button
+          <button id="next" aria-label="Следующий период">→</button
           ><button id="today">Сегодня</button>
         </div>
         <p class="timezone">
           Нажмите на дату, чтобы добавить занятие. Время — московское (UTC+3).
         </p>
-        <div id="days" class="days"></div>
+        <div class="calendar-scroll"><div id="days" class="days"></div></div>
         <p class="storage-note" id="storage-note" role="status">
           Занятия сохраняются в вашем аккаунте. Для загрузки изменений с другого
           устройства нажмите «Обновить».

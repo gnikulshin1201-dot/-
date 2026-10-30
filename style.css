@@ -551,3 +551,78 @@ input:disabled {
 #portal-app .day:has(div.day-title) {
   cursor: default;
 }
+.calendar-views {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 22px;
+}
+.calendar-views [aria-pressed="true"] {
+  background: var(--green);
+  border-color: var(--green);
+  color: white;
+}
+.calendar-scroll {
+  max-width: 100%;
+  overflow-x: auto;
+}
+.calendar-scroll .days {
+  border-radius: 9px;
+}
+.days .day {
+  border-bottom: 1px solid var(--line);
+}
+.days .day:nth-child(7n) {
+  border-right: 0;
+}
+.days .day:nth-last-child(-n + 7) {
+  border-bottom: 0;
+}
+.days.calendar-month .day {
+  min-height: 155px;
+}
+.outside-month {
+  background: #eeefe8;
+}
+.outside-month .day-title {
+  opacity: 0.55;
+}
+.calendar-scroll .calendar-month {
+  min-width: 700px;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+}
+.calendar-month .lesson {
+  padding: 7px;
+}
+.calendar-month .empty {
+  padding-top: 15px;
+}
+.week-nav h3 {
+  max-width: 100%;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 900px) {
+  .days:not(.calendar-month) .day {
+    border-bottom: 1px solid var(--line);
+  }
+  .days:not(.calendar-month) .day:last-child {
+    border-bottom: 0;
+  }
+  .days.calendar-month .day {
+    border-right: 1px solid var(--line);
+  }
+  .days.calendar-month .day:nth-child(7n) {
+    border-right: 0;
+  }
+}
+@media (max-width: 500px) {
+  .week-nav h3 {
+    flex: 1;
+    font-size: 12px;
+  }
+  .calendar-views button {
+    flex: 1;
+    padding: 10px;
+  }
+}

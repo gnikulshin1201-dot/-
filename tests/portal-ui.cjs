@@ -184,6 +184,8 @@ const assert = require("node:assert/strict");
   assert.match(await t.locator(".student-name").textContent(), /Анна/);
   assert.equal(await t.locator("#portal-app .lesson img").count(), 0);
   await t
+    .locator("#portal-app .lesson")
+    .filter({ hasText: "Анна" })
     .getByRole("button", { name: "Занятие и задание", exact: true })
     .click();
   await t
@@ -265,10 +267,43 @@ const assert = require("node:assert/strict");
         fullPage: true,
       });
     }
+  for (const page of [t, s]) {
+    const views = page.locator("#portal-app .calendar-views");
+    await views.getByRole("button", { name: "2 недели", exact: true }).click();
+    await page.waitForFunction(
+      () => document.querySelectorAll("#portal-app .day").length === 14,
+    );
+    assert.equal(
+      await views
+        .getByRole("button", { name: "2 недели", exact: true })
+        .getAttribute("aria-pressed"),
+      "true",
+    );
+    await views.getByRole("button", { name: "Месяц", exact: true }).click();
+    await page.waitForFunction(() =>
+      document
+        .querySelector("#portal-app .days")
+        .classList.contains("calendar-month"),
+    );
+    const count = await page.locator("#portal-app .day").count();
+    assert.ok([28, 35, 42].includes(count));
+    assert.equal(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth > innerWidth,
+      ),
+      false,
+    );
+    await views.getByRole("button", { name: "Неделя", exact: true }).click();
+    await page.waitForFunction(
+      () => document.querySelectorAll("#portal-app .day").length === 7,
+    );
+  }
   await s.getByRole("button", { name: "Выйти", exact: true }).click();
   await s.locator("#login-panel").waitFor({ state: "visible" });
   assert.equal(await s.locator("#portal-app .lesson").count(), 0);
   await t
+    .locator("#portal-app .lesson")
+    .filter({ hasText: "Анна" })
     .getByRole("button", { name: "Занятие и задание", exact: true })
     .click();
   t.once("dialog", (d) => d.accept());

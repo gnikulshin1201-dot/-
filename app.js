@@ -11,11 +11,6 @@ const moscowDate = () =>
     day: "2-digit",
   }).format(new Date());
 const atNoon = (s) => new Date(`${s}T12:00:00`);
-const monday = (d) => {
-  const n = new Date(d);
-  n.setDate(n.getDate() - ((n.getDay() + 6) % 7));
-  return n;
-};
 const valid = (a) =>
   Array.isArray(a) &&
   a.length <= 5000 &&
@@ -40,7 +35,15 @@ const valid = (a) =>
       x.topic.length <= 120,
   );
 let lessons = [];
-let week = monday(atNoon(moscowDate()));
+let week = atNoon(moscowDate());
+let calendarMode = "week";
+const calendar = window.ScheduleCalendar;
+const viewControls = calendar.controls(calendarMode, (mode) => {
+  calendarMode = mode;
+  calendar.sync(viewControls, mode);
+  render();
+});
+document.querySelector("#schedule-app .week-nav").before(viewControls);
 let saving = false;
 async function persist(next) {
   if (saving) return false;
@@ -73,24 +76,22 @@ function el(tag, text, cls) {
   return n;
 }
 function render() {
-  const end = new Date(week);
-  end.setDate(end.getDate() + 6);
-  const fmt = (d) =>
-    d.toLocaleDateString("ru-RU", {
-      day: "numeric",
-      month: "short",
-      year: "numeric",
-    });
-  $("week-label").textContent = `${fmt(week)} — ${fmt(end)}`;
+  const range = calendar.range(calendarMode, week);
+  $("week-label").textContent = calendar.title(calendarMode, week);
+  $("days").classList.toggle("calendar-month", calendarMode === "month");
   $("days").replaceChildren();
-  for (let i = 0; i < 7; i++) {
-    const d = new Date(week);
+  for (let i = 0; i < range.count; i++) {
+    const d = new Date(range.start);
     d.setDate(d.getDate() + i);
     const key = dateKey(d);
     const day = el(
       "section",
       null,
       "day" + (key === moscowDate() ? " is-today" : ""),
+    );
+    day.classList.toggle(
+      "outside-month",
+      calendarMode === "month" && d.getMonth() !== week.getMonth(),
     );
     const heading = el("button", null, "day-title");
     heading.type = "button";
@@ -142,15 +143,15 @@ function render() {
   }
 }
 $("prev").onclick = () => {
-  week.setDate(week.getDate() - 7);
+  week = calendar.move(calendarMode, week, -1);
   render();
 };
 $("next").onclick = () => {
-  week.setDate(week.getDate() + 7);
+  week = calendar.move(calendarMode, week, 1);
   render();
 };
 $("today").onclick = () => {
-  week = monday(atNoon(moscowDate()));
+  week = atNoon(moscowDate());
   render();
 };
 function openLesson(date) {
@@ -198,7 +199,7 @@ $("lesson-form").onsubmit = async (e) => {
     return;
   }
   if (await persist([...lessons, x])) {
-    week = monday(atNoon(x.date));
+    week = atNoon(x.date);
     render();
     $("lesson-dialog").close();
   }
@@ -273,15 +274,64 @@ function setAuthMode(mode) {
   $("login-error").textContent = "";
   $("auth-message").textContent = "";
 }
-$("forgot-password").onclick=async()=>{
-  const email=$("email");if(!email.reportValidity())return;
-  $("forgot-password").disabled=true;$("login-error").textContent="";$("auth-message").textContent="";
-  try{await store.sendRecovery(email.value.trim());$("auth-message").textContent="Если аккаунт с такой почтой существует, придёт письмо восстановления. Проверьте входящие и папку «Спам», откройте ссылку и задайте новый пароль.";}
-  catch(e){$("login-error").textContent=e.message}finally{$("forgot-password").disabled=false}
+$("forgot-password").onclick = async () => {
+  const email = $("email");
+  if (!email.reportValidity()) return;
+  $("forgot-password").disabled = true;
+  $("login-error").textContent = "";
+  $("auth-message").textContent = "";
+  try {
+    await store.sendRecovery(email.value.trim());
+    $("auth-message").textContent =
+      "Если аккаунт с такой почтой существует, придёт письмо восстановления. Проверьте входящие и папку «Спам», откройте ссылку и задайте новый пароль.";
+  } catch (e) {
+    $("login-error").textContent = e.message;
+  } finally {
+    $("forgot-password").disabled = false;
+  }
 };
-function showRecovery(){ $("login-panel").hidden=true;$("schedule-app").hidden=true;$("portal-app").hidden=true;$("recovery-panel").hidden=false; }
-$("recovery-form").onsubmit=async e=>{e.preventDefault();$("recovery-error").textContent="";if($("new-password").value!==$("new-password-confirm").value){$("recovery-error").textContent="Пароли не совпадают.";return}$("save-password").disabled=true;$("cancel-recovery").disabled=true;try{const revoked=await store.changeRecoveredPassword($("new-password").value);$("recovery-form").reset();$("recovery-panel").hidden=true;$("login-panel").hidden=false;setAuthMode("login");$("auth-message").textContent=revoked?"Пароль изменён. Войдите с новым паролем. Занятия и задания сохранены.":"Пароль изменён. Не удалось завершить другие сеансы. Войдите с новым паролем.";}catch(e){$("recovery-error").textContent=e.message}finally{$("save-password").disabled=false;$("cancel-recovery").disabled=false}};
-$("cancel-recovery").onclick=async()=>{try{await store.logout()}catch{}$("recovery-form").reset();$("recovery-panel").hidden=true;$("login-panel").hidden=false;setAuthMode("login")};
+function showRecovery() {
+  $("login-panel").hidden = true;
+  $("schedule-app").hidden = true;
+  $("portal-app").hidden = true;
+  $("recovery-panel").hidden = false;
+}
+$("recovery-form").onsubmit = async (e) => {
+  e.preventDefault();
+  $("recovery-error").textContent = "";
+  if ($("new-password").value !== $("new-password-confirm").value) {
+    $("recovery-error").textContent = "Пароли не совпадают.";
+    return;
+  }
+  $("save-password").disabled = true;
+  $("cancel-recovery").disabled = true;
+  try {
+    const revoked = await store.changeRecoveredPassword(
+      $("new-password").value,
+    );
+    $("recovery-form").reset();
+    $("recovery-panel").hidden = true;
+    $("login-panel").hidden = false;
+    setAuthMode("login");
+    $("auth-message").textContent = revoked
+      ? "Пароль изменён. Войдите с новым паролем. Занятия и задания сохранены."
+      : "Пароль изменён. Не удалось завершить другие сеансы. Войдите с новым паролем.";
+  } catch (e) {
+    $("recovery-error").textContent = e.message;
+  } finally {
+    $("save-password").disabled = false;
+    $("cancel-recovery").disabled = false;
+  }
+};
+$("cancel-recovery").onclick = async () => {
+  try {
+    await store.logout();
+  } catch {}
+  $("recovery-form").reset();
+  $("recovery-panel").hidden = true;
+  $("login-panel").hidden = false;
+  setAuthMode("login");
+};
 $("show-login").onclick = () => setAuthMode("login");
 $("show-register").onclick = () => setAuthMode("register");
 $("login-form").onsubmit = async (e) => {
@@ -369,14 +419,25 @@ $("refresh").onclick = async () => {
     return;
   }
   try {
-    if (await store.beginRecovery()) { showRecovery(); return; }
-    if (await store.restore()) { if(store.recovering)showRecovery();else await loadSchedule(); }
+    if (await store.beginRecovery()) {
+      showRecovery();
+      return;
+    }
+    if (await store.restore()) {
+      if (store.recovering) showRecovery();
+      else await loadSchedule();
+    }
   } catch (e) {
     $("login-error").textContent = e.message;
   }
 })();
 
 window.addEventListener("hashchange", async () => {
-  try { if (await store.beginRecovery()) showRecovery(); }
-  catch(e) { $("recovery-panel").hidden=true;$("login-panel").hidden=false;$("login-error").textContent=e.message; }
+  try {
+    if (await store.beginRecovery()) showRecovery();
+  } catch (e) {
+    $("recovery-panel").hidden = true;
+    $("login-panel").hidden = false;
+    $("login-error").textContent = e.message;
+  }
 });

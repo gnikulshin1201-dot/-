@@ -23,11 +23,6 @@ window.LessonPortal = (() => {
       month: "2-digit",
       day: "2-digit",
     }).format(new Date());
-  const monday = (key) => {
-    const d = new Date(key + "T12:00:00");
-    d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
-    return d;
-  };
   const mime = {
     jpg: "image/jpeg",
     jpeg: "image/jpeg",
@@ -41,9 +36,12 @@ window.LessonPortal = (() => {
   let profile,
     students = [],
     lessons = [],
-    week = monday(today()),
+    week = new Date(today() + "T12:00:00"),
     busy = false,
     generation = 0;
+  const calendar = window.ScheduleCalendar;
+  let calendarMode = "week",
+    viewControls;
   let message, days, weekLabel;
   const api = (path, method = "GET", body, headers) =>
     store.api(path, {
@@ -143,14 +141,13 @@ window.LessonPortal = (() => {
   }
   async function refresh() {
     const epoch = generation;
-    const to = new Date(week);
-    to.setDate(to.getDate() + 6);
+    const period = calendar.range(calendarMode, week);
     const [profiles, rows] = await Promise.all([
       api(
         "/rest/v1/portal_profiles?select=id,display_name,role&order=display_name",
       ),
       api(
-        `/rest/v1/portal_lessons?select=*&lesson_date=gte.${dateKey(week)}&lesson_date=lte.${dateKey(to)}&order=lesson_date,start_time`,
+        `/rest/v1/portal_lessons?select=*&lesson_date=gte.${dateKey(period.start)}&lesson_date=lte.${dateKey(period.end)}&order=lesson_date,start_time`,
       ),
     ]);
     if (epoch !== generation) return;
@@ -163,22 +160,34 @@ window.LessonPortal = (() => {
       students.find((p) => p.id === id)?.display_name || "Имя ещё не указано"
     );
   }
+  async function navigateTo(next) {
+    const previous = week;
+    week = next;
+    try {
+      await refresh();
+    } catch (e) {
+      week = previous;
+      throw e;
+    }
+  }
   function renderDays() {
     if (!days) return;
     days.replaceChildren();
-    const end = new Date(week);
-    end.setDate(end.getDate() + 6);
-    const fmt = (d) =>
-      d.toLocaleDateString("ru-RU", { day: "numeric", month: "short" });
-    weekLabel.textContent = `${fmt(week)} — ${fmt(end)}, ${end.getFullYear()}`;
-    for (let i = 0; i < 7; i++) {
-      const date = new Date(week);
+    const period = calendar.range(calendarMode, week);
+    weekLabel.textContent = calendar.title(calendarMode, week);
+    days.classList.toggle("calendar-month", calendarMode === "month");
+    for (let i = 0; i < period.count; i++) {
+      const date = new Date(period.start);
       date.setDate(date.getDate() + i);
       const key = dateKey(date);
       const day = node(
         "section",
         undefined,
         "day" + (key === today() ? " is-today" : ""),
+      );
+      day.classList.toggle(
+        "outside-month",
+        calendarMode === "month" && date.getMonth() !== week.getMonth(),
       );
       const heading = teacher()
         ? button("", () => newLesson(key), "day-title")
@@ -663,31 +672,42 @@ window.LessonPortal = (() => {
       toolbar.append(buttons);
     }
     planner.append(toolbar);
+    viewControls = calendar.controls(calendarMode, (mode) =>
+      run(async () => {
+        const previous = calendarMode;
+        calendarMode = mode;
+        try {
+          await refresh();
+          calendar.sync(viewControls, mode);
+        } catch (e) {
+          calendarMode = previous;
+          throw e;
+        }
+      }),
+    );
+    planner.append(viewControls);
     const nav = node("div", undefined, "week-nav");
     weekLabel = node("h3");
     nav.append(
       button("←", () =>
         run(async () => {
-          week.setDate(week.getDate() - 7);
-          await refresh();
+          await navigateTo(calendar.move(calendarMode, week, -1));
         }),
       ),
       weekLabel,
       button("→", () =>
         run(async () => {
-          week.setDate(week.getDate() + 7);
-          await refresh();
+          await navigateTo(calendar.move(calendarMode, week, 1));
         }),
       ),
       button("Сегодня", () =>
         run(async () => {
-          week = monday(today());
-          await refresh();
+          await navigateTo(new Date(today() + "T12:00:00"));
         }),
       ),
     );
-    nav.firstChild.setAttribute("aria-label", "Предыдущая неделя");
-    nav.children[2].setAttribute("aria-label", "Следующая неделя");
+    nav.firstChild.setAttribute("aria-label", "Предыдущий период");
+    nav.children[2].setAttribute("aria-label", "Следующий период");
     nav.lastChild.id = "portal-today";
     planner.append(
       nav,
@@ -700,7 +720,9 @@ window.LessonPortal = (() => {
       ),
     );
     days = node("div", undefined, "days");
-    planner.append(days);
+    const scroll = node("div", undefined, "calendar-scroll");
+    scroll.append(days);
+    planner.append(scroll);
     message = node("p", "", "storage-note");
     message.setAttribute("role", "status");
     planner.append(message);
@@ -740,7 +762,7 @@ window.LessonPortal = (() => {
         );
       generation++;
       profile = profiles[0];
-      week = monday(today());
+      week = new Date(today() + "T12:00:00");
       build();
       await refresh();
       document.getElementById("login-panel").hidden = true;
